@@ -13,9 +13,9 @@ model_building:
     metric: "multi_logloss"
     is_unbalance: true
     class_weight: "balanced"
-    reg_alpha: 0.1
-    reg_lambda: 0.004266070190936447
-    learning_rate: 0.04
-    max_depth: 20
-    n_estimators: 407
-    min_child_samples: 11
+    reg_alpha: 0.00034882100506868535
+    reg_lambda: 0.017530902601654946
+    learning_rate: 0.09972211673774413
+    max_depth: 6
+    n_estimators: 825
+    min_child_samples: 10
