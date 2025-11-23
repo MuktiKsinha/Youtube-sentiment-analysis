@@ -31,12 +31,12 @@ if _SRC_DIR not in sys.path:
     sys.path.insert(0, _SRC_DIR)
 
 try:
-    from features.feature_engineering import extract_custom_features_batch
+    from src.features.feature_engineering import extract_custom_features_batch
 except Exception as _e:
     extract_custom_features_batch = None
     # logger may not be configured yet; print a warning to stderr
     print(f"Warning: could not import extract_custom_features_batch: {_e}", file=sys.stderr)
-from src.features.feature_engineering import extract_custom_features_batch
+
 
 
 logger = logging.getLogger('model_evaluation')
@@ -221,7 +221,7 @@ def main():
         # -----------------------------
         # Set MLflow tracking URI BEFORE experiment
         # -----------------------------
-        mlflow.set_tracking_uri("http://ec2-51-20-65-11.eu-north-1.compute.amazonaws.com:5000/")
+        mlflow.set_tracking_uri("http://ec2-56-228-24-151.eu-north-1.compute.amazonaws.com:5000/")
 
         mlflow.set_experiment("Youtube_sentiment_evaluation")
 
@@ -335,9 +335,10 @@ def main():
 
             # Save model info
             model_info_path = os.path.join(models_dir, "model_info.json")
-            save_model_info(run.info.run_id, model_file, model_info_path)
+            save_model_info(run.info.run_id, "model", model_info_path)
             mlflow.log_artifact(model_info_path)
             mlflow.log_artifact(vectorizer_file)
+            mlflow.log_artifact(features_file)
 
 
             # Evaluate

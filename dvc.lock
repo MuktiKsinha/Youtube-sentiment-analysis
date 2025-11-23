@@ -117,29 +117,29 @@ stages:
       size: 6128417
     - path: src/model/model_evaluation.py
       hash: md5
-      md5: 96b525a99f6b17e5ca92de7341ef9677
-      size: 15004
+      md5: 5a2b8e6df18b148f08be49f56a6cbe18
+      size: 14981
     outs:
     - path: models/model_info.json
       hash: md5
-      md5: b4c2e67f8cef770d7149be4633554e06
-      size: 166
+      md5: 6784cb20079055fd5a04827e5ad9f5e7
+      size: 82
     - path: reports/classification_report.json
       hash: md5
-      md5: 5a3a97aaa37b25fbac48e97325db9d7c
-      size: 905
+      md5: a83a47ba114d2e2a07eac7b8170655e5
+      size: 903
     - path: reports/confusion_matrix_test_set.png
       hash: md5
-      md5: 43b520082e66b46b1e71b3c166a5ecdd
-      size: 21952
+      md5: efbaf854b51069ff558ee50217f8b45f
+      size: 21959
   model_registration:
     cmd: python src/model/register_model.py
     deps:
     - path: models/model_info.json
       hash: md5
-      md5: b4c2e67f8cef770d7149be4633554e06
-      size: 166
+      md5: 6784cb20079055fd5a04827e5ad9f5e7
+      size: 82
     - path: src/model/register_model.py
       hash: md5
-      md5: ad06b069bf0075c77f3b8fe975b47ac8
-      size: 2762
+      md5: 33e9683666087915408e4abac939a1e3
+      size: 2764
