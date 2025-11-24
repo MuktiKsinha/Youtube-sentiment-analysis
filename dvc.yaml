@@ -26,39 +26,42 @@ stages:
     params:
       - feature_engineering.max_features
       - feature_engineering.ngram_range
-      - feature_engineering.custom_features_batch_size
     outs:
-      - data/processed/custom_features_train.csv
-      - data/processed/X_train_BOW_custom.pkl
+      - data/processed/X_train_BOW.pkl
       - data/processed/y_train.pkl
       - data/processed/bow_vectorizer.pkl
-  
+
   model_building:
     cmd: python src/model/model_building.py
     deps:
       - src/model/model_building.py
-      - data/processed/X_train_BOW_custom.pkl
+      - data/processed/X_train_BOW.pkl
       - data/processed/y_train.pkl
+      - data/processed/bow_vectorizer.pkl
       - params.yaml
+    params:
+      - model_building.lgbm_params
     outs:
       - models/lgbm_Youtube_sentiment.pkl
-  
+      - models/model_info.json
+
   model_evaluation:
     cmd: python src/model/model_evaluation.py
     deps:
       - src/model/model_evaluation.py
-      - data/interim/train_processed.csv
-      - data/processed/X_train_BOW_custom.pkl
       - models/lgbm_Youtube_sentiment.pkl
+      - data/processed/bow_vectorizer.pkl
+      - data/interim/test_processed.csv
+      - params.yaml
     outs:
       - reports/classification_report.json
       - reports/confusion_matrix_test_set.png
-      - models/model_info.json
 
   model_registration:
     cmd: python src/model/register_model.py
     deps:
-      - models/model_info.json
       - src/model/register_model.py
+      - models/model_info.json
+    outs: []
 
   

@@ -50,28 +50,23 @@ stages:
       size: 589
     - path: src/features/feature_engineering.py
       hash: md5
-      md5: 81bab64f885da14ece15abc6a8781394
-      size: 7058
+      md5: 4c70c60520e5507c3b64a8c85d056df8
+      size: 4187
     params:
       params.yaml:
-        feature_engineering.custom_features_batch_size: 64
         feature_engineering.max_features: 5000
         feature_engineering.ngram_range:
         - 1
         - 3
     outs:
-    - path: data/processed/X_train_BOW_custom.pkl
+    - path: data/processed/X_train_BOW.pkl
       hash: md5
-      md5: 39e96ec7458c37a89ceab349aedb6ab0
-      size: 8958248
+      md5: 9a4b1e1b82ffd24f7a5db5c1df382026
+      size: 5186744
     - path: data/processed/bow_vectorizer.pkl
       hash: md5
-      md5: 48310f4e8bf5aabcaa74c60fc2d508c0
+      md5: 301484e32184dbb846de220fb3654876
       size: 148286
-    - path: data/processed/custom_features_train.csv
-      hash: md5
-      md5: ec2af4a01d2aa3db8fd63ef134a65237
-      size: 3440589
     - path: data/processed/y_train.pkl
       hash: md5
       md5: 60ae8d5a2df233794a6287641a5253ca
@@ -79,10 +74,14 @@ stages:
   model_building:
     cmd: python src/model/model_building.py
     deps:
-    - path: data/processed/X_train_BOW_custom.pkl
+    - path: data/processed/X_train_BOW.pkl
       hash: md5
-      md5: 39e96ec7458c37a89ceab349aedb6ab0
-      size: 8958248
+      md5: 9a4b1e1b82ffd24f7a5db5c1df382026
+      size: 5186744
+    - path: data/processed/bow_vectorizer.pkl
+      hash: md5
+      md5: 301484e32184dbb846de220fb3654876
+      size: 148286
     - path: data/processed/y_train.pkl
       hash: md5
       md5: 60ae8d5a2df233794a6287641a5253ca
@@ -93,53 +92,71 @@ stages:
       size: 589
     - path: src/model/model_building.py
       hash: md5
-      md5: 50d501e2b23e32c525267d566f22da2a
-      size: 2562
+      md5: 52327e00385a48a864d5e7db086782cc
+      size: 4647
+    params:
+      params.yaml:
+        model_building.lgbm_params:
+          objective: multiclass
+          num_class: 3
+          metric: multi_logloss
+          is_unbalance: true
+          class_weight: balanced
+          reg_alpha: 0.00034882100506868535
+          reg_lambda: 0.017530902601654946
+          learning_rate: 0.09972211673774413
+          max_depth: 6
+          n_estimators: 825
+          min_child_samples: 10
     outs:
     - path: models/lgbm_Youtube_sentiment.pkl
       hash: md5
-      md5: 03bbdec15b9924dc0fcec363ca5fbb93
-      size: 6128417
+      md5: 6e51ef33cb941f635c1b8dbd080488fc
+      size: 5275101
+    - path: models/model_info.json
+      hash: md5
+      md5: eb702b007fcb6bacf475fd1918645f69
+      size: 103
   model_evaluation:
     cmd: python src/model/model_evaluation.py
     deps:
-    - path: data/interim/train_processed.csv
+    - path: data/interim/test_processed.csv
       hash: md5
-      md5: 35027dfda8274bd9356544f2ff358aa4
-      size: 4134324
-    - path: data/processed/X_train_BOW_custom.pkl
+      md5: 4f30375397ec89fead1745ee6d70f201
+      size: 1000526
+    - path: data/processed/bow_vectorizer.pkl
       hash: md5
-      md5: 39e96ec7458c37a89ceab349aedb6ab0
-      size: 8958248
+      md5: 301484e32184dbb846de220fb3654876
+      size: 148286
     - path: models/lgbm_Youtube_sentiment.pkl
       hash: md5
-      md5: 03bbdec15b9924dc0fcec363ca5fbb93
-      size: 6128417
+      md5: 6e51ef33cb941f635c1b8dbd080488fc
+      size: 5275101
+    - path: params.yaml
+      hash: md5
+      md5: 96a35c7ed8c6f637d4119ff091789c77
+      size: 589
     - path: src/model/model_evaluation.py
       hash: md5
-      md5: 5a2b8e6df18b148f08be49f56a6cbe18
-      size: 14981
+      md5: 037e434299cb65e5fcc92bb2159b96b1
+      size: 9144
     outs:
-    - path: models/model_info.json
-      hash: md5
-      md5: 6784cb20079055fd5a04827e5ad9f5e7
-      size: 82
     - path: reports/classification_report.json
       hash: md5
-      md5: a83a47ba114d2e2a07eac7b8170655e5
-      size: 903
+      md5: 16ea79a52401413bfcf7c88c5f8c7f2a
+      size: 904
     - path: reports/confusion_matrix_test_set.png
       hash: md5
-      md5: efbaf854b51069ff558ee50217f8b45f
-      size: 21959
+      md5: 3f7bb74cf9a8751d47999ce0a10b29f8
+      size: 21094
   model_registration:
     cmd: python src/model/register_model.py
     deps:
     - path: models/model_info.json
       hash: md5
-      md5: 6784cb20079055fd5a04827e5ad9f5e7
-      size: 82
+      md5: eb702b007fcb6bacf475fd1918645f69
+      size: 103
     - path: src/model/register_model.py
       hash: md5
-      md5: 33e9683666087915408e4abac939a1e3
-      size: 2764
+      md5: c5df5da3bc332ded801afe714f657032
+      size: 3077

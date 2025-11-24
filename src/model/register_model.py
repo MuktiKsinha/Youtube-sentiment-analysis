@@ -1,24 +1,21 @@
+# src/model/model_registration.py
+
 import json
 import mlflow
 from mlflow.tracking import MlflowClient
 import logging
 import os
 
-
-
-# Set up MLflow tracking URI
-mlflow.set_tracking_uri("http://ec2-56-228-24-151.eu-north-1.compute.amazonaws.com:5000/")
-
-
-# logging configuration
+# ---------------------------
+# Logging
+# ---------------------------
 logger = logging.getLogger('model_registration')
-logger.setLevel('DEBUG')
+logger.setLevel(logging.DEBUG)
 
 console_handler = logging.StreamHandler()
-console_handler.setLevel('DEBUG')
-
+console_handler.setLevel(logging.DEBUG)
 file_handler = logging.FileHandler('model_registration_errors.log')
-file_handler.setLevel('ERROR')
+file_handler.setLevel(logging.ERROR)
 
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 console_handler.setFormatter(formatter)
@@ -27,58 +24,69 @@ file_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
 logger.addHandler(file_handler)
 
+# ---------------------------
+# MLflow server
+# ---------------------------
+MLFLOW_URI = "http://ec2-13-60-52-178.eu-north-1.compute.amazonaws.com:5000"
+mlflow.set_tracking_uri(MLFLOW_URI)
+
+# ---------------------------
+# Helper functions
+# ---------------------------
 def get_root_directory() -> str:
     current_dir = os.path.dirname(os.path.abspath(__file__))
     return os.path.abspath(os.path.join(current_dir, '../../'))
 
-
-def load_model_info(file_path :str) -> dict:
-    "load the model info from jason file model_info.json"
+def load_model_info(file_path: str) -> dict:
     try:
-        with open(file_path,'r') as file:
+        with open(file_path, 'r') as file:
             model_info = json.load(file)
-        logger.debug('Model info Loaded from %s',file_path)
+        logger.debug('Model info loaded from %s', file_path)
         return model_info
-    except FileNotFoundError:
-        logger.error('File not found : %s',file_path)
-        raise
     except Exception as e:
-        logger.error('Unexpected error occurred while loading the model info: %s', e)
+        logger.error('Error loading model info: %s', e)
         raise
 
-def register_model(model_name:str,model_info: dict):
-    """Register the model to the MLflow Model Registry."""
+def register_model(model_name: str, model_info: dict):
     try:
+        # Correct MLflow URI: run_id + relative artifact path
         model_uri = f"runs:/{model_info['run_id']}/{model_info['model_path']}"
+        logger.info("Registering model from URI: %s", model_uri)
 
         #register the model
-        model_version = mlflow.register_model(model_uri,model_name)
-
-        # Transition the model to "Staging" stage
+        
         client = MlflowClient()
+        model_version = mlflow.register_model(model_uri=model_uri, name=model_name)
+        logger.info(f"Model registered: {model_name}, version {model_version.version}")
+
+        # Transition new version to 'Staging' and archive old Staging versions
         client.transition_model_version_stage(
             name=model_name,
             version=model_version.version,
-            stage="Staging"
+            stage="Staging",
+            archive_existing_versions=True
         )
-        
-        logger.debug(f'Model {model_name} version {model_version.version} registered and transitioned to Staging.')
+        logger.info(f"Model {model_name} version {model_version.version} transitioned to Staging.")
+
     except Exception as e:
         logger.error('Error during model registration: %s', e)
         raise
 
+# ---------------------------
+# Main
+# ---------------------------
 def main():
     try:
         root = get_root_directory()
-        models_dir = os.path.join(root, "models")
-        model_info_path = os.path.join(models_dir, "model_info.json")
+        model_info_path = os.path.join(root, "models", "model_info.json")
 
         model_info = load_model_info(model_info_path)
+        model_name = "Youtube_sentiment_analysis_chrome_plugin"
 
-        model_name = 'Youtube_chrome_plugin_model'
-        register_model(model_name,model_info)
+        register_model(model_name, model_info)
+
     except Exception as e:
-        logger.error('Failed to complete the model registration process: %s', e)
+        logger.error('Failed to register the model: %s', e)
         print(f"Error: {e}")
 
 if __name__ == '__main__':

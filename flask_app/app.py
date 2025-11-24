@@ -1,77 +1,207 @@
-from flask import Flask, request, jsonify
-import pickle
-import pandas as pd
-import numpy as np
-from scipy.sparse import hstack, csr_matrix
 import os
+import pickle
+import io
+import logging
 
-# Load vectorizer and model at startup
+from flask import Flask, request, jsonify, send_file
+from flask_cors import CORS
+
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from wordcloud import WordCloud
+
+import numpy as np
+import pandas as pd
+from scipy.sparse import csr_matrix
+
+import spacy
+from nltk.stem import WordNetLemmatizer
+
+import mlflow
+
+# ----------------------- Logging & Config -----------------------
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../'))
 
-with open(os.path.join(ROOT_DIR, 'data/processed/bow_vectorizer.pkl'), 'rb') as f:
-    vectorizer = pickle.load(f)
+VECTORIZER_PATH = os.path.join(ROOT_DIR, 'data/processed/bow_vectorizer.pkl')
+X_TRAIN_REF_PATH = os.path.join(ROOT_DIR, 'data/processed/X_train_BOW_custom.pkl')
 
-with open(os.path.join(ROOT_DIR, 'models/lgbm_Youtube_sentiment.pkl'), 'rb') as f:
-    model = pickle.load(f)
+MLFLOW_TRACKING_URI = "http://ec2-13-60-52-178.eu-north-1.compute.amazonaws.com:5000/"
+MODEL_NAME = "Youtube_chrome_plugin_model"
+MODEL_VERSION = "4"
 
-with open(os.path.join(ROOT_DIR, 'data/processed/X_train_BOW_custom.pkl'), 'rb') as f:
-    X_train_features_ref = pickle.load(f)
+nlp = spacy.load("en_core_web_sm")
+lemmatizer = WordNetLemmatizer()
 
-# Number of BOW and custom features
-n_bow_features = vectorizer.transform(['dummy']).shape[1] #Transforms a dummy string to get number of BOW features (shape[1] = number of columns).
-n_total_features = X_train_features_ref.shape[1]
-n_custom_features = n_total_features - n_bow_features
+# ----------------------- Load Model & Vectorizer -----------------------
+def load_model_and_vectorizer():
+    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+    logger.info(f"MLflow tracking URI set to {MLFLOW_TRACKING_URI}")
 
-app = Flask(__name__)
+    model_uri = f"models:/{MODEL_NAME}/{MODEL_VERSION}"
+    logger.info(f"Loading model from MLflow: {model_uri}")
 
+    try:
+        model = mlflow.pyfunc.load_model(model_uri)
+        logger.info("MLflow model loaded successfully.")
+    except Exception as e:
+        logger.exception("Failed to load MLflow model.")
+        raise RuntimeError(f"Cannot load model from MLflow registry: {e}")
+
+    with open(VECTORIZER_PATH, 'rb') as f:
+        vectorizer = pickle.load(f)
+    logger.info("Loaded vectorizer")
+
+    # Load training reference DataFrame with column names
+    with open(X_TRAIN_REF_PATH, 'rb') as f:
+        X_train_features_ref = pickle.load(f)
+    if not isinstance(X_train_features_ref, pd.DataFrame):
+        raise ValueError("X_train_features_ref must be a pandas DataFrame with column names.")
+    logger.info("Loaded training feature reference matrix")
+
+    bow_columns = list(vectorizer.get_feature_names_out())
+    custom_columns = [c for c in X_train_features_ref.columns if c not in bow_columns]
+
+    return model, vectorizer, X_train_features_ref, bow_columns, custom_columns
+
+model, vectorizer, X_train_features_ref, bow_columns, custom_columns = load_model_and_vectorizer()
+
+# ----------------------- Custom Feature Extraction -----------------------
 def extract_custom_features(texts):
-    """Replace with your actual extractor if available."""
-    # Example: zero-padding if extractor unavailable
-    return pd.DataFrame(
-        np.zeros((len(texts), n_custom_features), dtype=np.float32),
-        columns=[f"custom_feature_{i}" for i in range(n_custom_features)]
-    )
+    results = []
+    for doc in nlp.pipe(texts, batch_size=32):
+        word_list = [token.text for token in doc]
+        word_count = len(word_list)
+        unique_words = len(set(word_list))
+        pos_tags = [token.pos_ for token in doc]
 
-@app.route('/predict', methods=['POST'])
-def predict():
-    data = request.json
-    comments = data.get('comments', [])
+        features = {
+            "comment_length": len(doc.text),
+            "word_count": word_count,
+            "avg_word_length": sum(len(w) for w in word_list)/word_count if word_count else 0,
+            "unique_word_count": unique_words,
+            "lexical_diversity": unique_words/word_count if word_count else 0,
+            "pos_count": len(pos_tags)
+        }
 
-    # BOW features
-    X_bow = vectorizer.transform(comments)
+        for tag in set(pos_tags):
+            features[f"pos_ratio_{tag}"] = pos_tags.count(tag)/word_count
+
+        results.append(features)
+
+    df = pd.DataFrame(results).fillna(0)
+    df = df.reindex(columns=custom_columns, fill_value=0)  # match training columns
+    return df
+
+# ----------------------------- Build Full Feature DataFrame -----------------------------
+def build_feature_dataframe(comments):
+    cleaned_comments = [c for c in comments if c.strip()]
+    if not cleaned_comments:
+        return None, []
+
+    # BOW DataFrame
+    X_bow_sparse = vectorizer.transform(cleaned_comments)
+    X_bow_df = pd.DataFrame(X_bow_sparse.toarray(), columns=bow_columns)
 
     # Custom features
-    custom_df = extract_custom_features(comments)
-    custom_np = custom_df.fillna(0).astype(np.float32).values
+    custom_df = extract_custom_features(cleaned_comments)
 
-    # Pad/truncate custom features if needed
-    if custom_np.shape[1] != n_custom_features:
-        if custom_np.shape[1] > n_custom_features:
-            custom_np = custom_np[:, :n_custom_features]
-        else:
-            pad_width = n_custom_features - custom_np.shape[1]
-            custom_np = np.hstack([custom_np, np.zeros((custom_np.shape[0], pad_width), dtype=np.float32)])
+    # Combine BOW + custom features
+    X_full = pd.concat([X_bow_df, custom_df], axis=1)
 
-    X_custom = csr_matrix(custom_np)
+    # Ensure all columns of training set are present
+    X_full = X_full.reindex(columns=X_train_features_ref.columns, fill_value=0)
 
-    # Combine BOW + custom
-    X_final = hstack([X_bow, X_custom])
+    return X_full, cleaned_comments
 
-    # Use the same column names as training
-    bow_feature_names = vectorizer.get_feature_names_out()
-    custom_feature_names = [f"custom_feature_{i}" for i in range(n_custom_features)]
-    all_feature_names = list(bow_feature_names) + custom_feature_names
+# ----------------------- Flask App -----------------------
+app = Flask(__name__)
+CORS(app, resources={r"/*": {"origins": "*"}})
 
-    X_final_df = pd.DataFrame(X_final.toarray(), columns=all_feature_names)
+@app.after_request
+def add_cors_headers(response):
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    return response
 
-    # Predict
-    preds = model.predict(X_final_df).tolist()
-    # Build response
-    response = [{"comment": comment, "sentiment": int(preds[i])} for i, comment in enumerate(comments)]
-    return jsonify(response)
+@app.route("/")
+def home():
+    return "Flask Sentiment API (BOW + spaCy Custom Features)"
 
-if __name__ == '__main__':
-    app.run(debug=True)
+# ----------------------------- /predict_with_timestamps -----------------------------
+@app.route("/predict_with_timestamps", methods=["POST"])
+def predict_with_timestamps():
+    try:
+        data = request.get_json()
+        items = data.get("comments", [])
+
+        comments = [it.get("text", "") for it in items]
+        timestamps = [it.get("timestamp") for it in items]
+
+        X_full, valid_comments = build_feature_dataframe(comments)
+        if X_full is None:
+            return jsonify([])
+
+        preds = [int(p) for p in model.predict(X_full)]
+
+        result = []
+        valid_idx = 0
+        for i, c in enumerate(comments):
+            if c.strip():
+                result.append({
+                    "comment": c,
+                    "sentiment": preds[valid_idx],
+                    "timestamp": timestamps[i]
+                })
+                valid_idx += 1
+            else:
+                result.append({
+                    "comment": c,
+                    "sentiment": None,
+                    "timestamp": timestamps[i]
+                })
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.exception("Prediction with timestamps failed")
+        return jsonify({"error": str(e)}), 500
+
+# ----------------------------- /predict -----------------------------
+@app.route("/predict", methods=["POST"])
+def predict():
+    try:
+        data = request.get_json()
+        comments = data.get("comments", [])
+
+        X_full, valid_comments = build_feature_dataframe(comments)
+        if X_full is None:
+            return jsonify([])
+
+        preds = [int(p) for p in model.predict(X_full)]
+
+        result = []
+        valid_idx = 0
+        for c in comments:
+            if c.strip():
+                result.append({"comment": c, "sentiment": preds[valid_idx]})
+                valid_idx += 1
+            else:
+                result.append({"comment": c, "sentiment": None})
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.exception("Prediction failed")
+        return jsonify({"error": str(e)}), 500
+
+# ----------------------- Run Server -----------------------
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)
 
 
 
