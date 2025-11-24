@@ -1,207 +1,220 @@
-import os
-import pickle
-import io
-import logging
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend before importing pyplot
 
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
-
-import matplotlib
-matplotlib.use('Agg')
+import io
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
-
-import numpy as np
-import pandas as pd
-from scipy.sparse import csr_matrix
-
-import spacy
-from nltk.stem import WordNetLemmatizer
-
 import mlflow
+import numpy as np
+import joblib
+import re
+import pandas as pd
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
+from mlflow.tracking import MlflowClient
+import matplotlib.dates as mdates
 
-# ----------------------- Logging & Config -----------------------
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+app = Flask(__name__)
+CORS(app, origins=["chrome-extension://glbklpjccnfkccgjjmjadhbmcbjghigd"], supports_credentials=True)
 
-ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../'))
+# ----------------------------
+# Preprocessing function
+# ----------------------------
+def preprocess_comment(comment):
+    try:
+        comment = comment.lower().strip()
+        comment = re.sub(r'\n', ' ', comment)
+        comment = re.sub(r'[^A-Za-z0-9\s!?.,]', '', comment)
+        stop_words = set(stopwords.words('english')) - {'not', 'but', 'however', 'no', 'yet'}
+        comment = ' '.join([word for word in comment.split() if word not in stop_words])
+        lemmatizer = WordNetLemmatizer()
+        comment = ' '.join([lemmatizer.lemmatize(word) for word in comment.split()])
+        return comment
+    except Exception as e:
+        print(f"Error in preprocessing comment: {e}")
+        return comment
 
-VECTORIZER_PATH = os.path.join(ROOT_DIR, 'data/processed/bow_vectorizer.pkl')
-X_TRAIN_REF_PATH = os.path.join(ROOT_DIR, 'data/processed/X_train_BOW_custom.pkl')
+# ----------------------------
+# Load model and vectorizer
+# ----------------------------
+def load_model_and_vectorizer(model_name, model_version, vectorizer_path):
+    mlflow.set_tracking_uri("http://ec2-13-60-52-178.eu-north-1.compute.amazonaws.com:5000")  # Update your MLflow URI
+    client = MlflowClient()
+    model_uri = f"models:/{model_name}/{model_version}"
+    model = mlflow.pyfunc.load_model(model_uri)
+    vectorizer = joblib.load(vectorizer_path)
+    return model, vectorizer
 
-MLFLOW_TRACKING_URI = "http://ec2-13-60-52-178.eu-north-1.compute.amazonaws.com:5000/"
-MODEL_NAME = "Youtube_chrome_plugin_model"
-MODEL_VERSION = "4"
+# Initialize model & vectorizer
+model, vectorizer = load_model_and_vectorizer("Youtube_chrome_plugin_model_final", "1", "./data/processed/bow_vectorizer.pkl")
 
-nlp = spacy.load("en_core_web_sm")
-lemmatizer = WordNetLemmatizer()
+# ----------------------------
+# Routes
+# ----------------------------
+@app.route('/')
+def home():
+    return "Welcome to the YouTube Comment Sentiment API"
 
-# ----------------------- Load Model & Vectorizer -----------------------
-def load_model_and_vectorizer():
-    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
-    logger.info(f"MLflow tracking URI set to {MLFLOW_TRACKING_URI}")
-
-    model_uri = f"models:/{MODEL_NAME}/{MODEL_VERSION}"
-    logger.info(f"Loading model from MLflow: {model_uri}")
+@app.route('/predict_with_timestamps', methods=['POST'])
+def predict_with_timestamps():
+    data = request.json
+    comments_data = data.get('comments')
+    if not comments_data:
+        return jsonify({"error": "No comments provided"}), 400
 
     try:
-        model = mlflow.pyfunc.load_model(model_uri)
-        logger.info("MLflow model loaded successfully.")
+        comments = [item['text'] for item in comments_data]
+        timestamps = [item['timestamp'] for item in comments_data]
+
+        preprocessed_comments = [preprocess_comment(comment) for comment in comments]
+        transformed_comments = vectorizer.transform(preprocessed_comments).astype(np.float32)
+        predictions = model.predict(transformed_comments).tolist()
+        predictions = [str(pred) for pred in predictions]
     except Exception as e:
-        logger.exception("Failed to load MLflow model.")
-        raise RuntimeError(f"Cannot load model from MLflow registry: {e}")
+        return jsonify({"error": f"Prediction failed: {str(e)}"}), 500
 
-    with open(VECTORIZER_PATH, 'rb') as f:
-        vectorizer = pickle.load(f)
-    logger.info("Loaded vectorizer")
+    response = [{"comment": c, "sentiment": s, "timestamp": t} for c, s, t in zip(comments, predictions, timestamps)]
+    return jsonify(response)
 
-    # Load training reference DataFrame with column names
-    with open(X_TRAIN_REF_PATH, 'rb') as f:
-        X_train_features_ref = pickle.load(f)
-    if not isinstance(X_train_features_ref, pd.DataFrame):
-        raise ValueError("X_train_features_ref must be a pandas DataFrame with column names.")
-    logger.info("Loaded training feature reference matrix")
+@app.route('/predict', methods=['POST'])
+def predict():
+    data = request.json
+    comments = data.get('comments')
+    if not comments:
+        return jsonify({"error": "No comments provided"}), 400
 
-    bow_columns = list(vectorizer.get_feature_names_out())
-    custom_columns = [c for c in X_train_features_ref.columns if c not in bow_columns]
+    try:
+        preprocessed_comments = [preprocess_comment(comment) for comment in comments]
+        transformed_comments = vectorizer.transform(preprocessed_comments).astype(np.float32)
+        predictions = model.predict(transformed_comments).tolist()
+        predictions = [str(pred) for pred in predictions]
+    except Exception as e:
+        return jsonify({"error": f"Prediction failed: {str(e)}"}), 500
 
-    return model, vectorizer, X_train_features_ref, bow_columns, custom_columns
+    response = [{"comment": c, "sentiment": s} for c, s in zip(comments, predictions)]
+    return jsonify(response)
 
-model, vectorizer, X_train_features_ref, bow_columns, custom_columns = load_model_and_vectorizer()
+@app.route('/generate_chart', methods=['POST'])
+def generate_chart():
+    try:
+        data = request.get_json()
+        sentiment_counts = data.get('sentiment_counts')
+        if not sentiment_counts:
+            return jsonify({"error": "No sentiment counts provided"}), 400
 
-# ----------------------- Custom Feature Extraction -----------------------
-def extract_custom_features(texts):
-    results = []
-    for doc in nlp.pipe(texts, batch_size=32):
-        word_list = [token.text for token in doc]
-        word_count = len(word_list)
-        unique_words = len(set(word_list))
-        pos_tags = [token.pos_ for token in doc]
+        labels = ['Positive', 'Neutral', 'Negative']
+        sizes = [
+            int(sentiment_counts.get('1', 0)),
+            int(sentiment_counts.get('0', 0)),
+            int(sentiment_counts.get('-1', 0))
+        ]
+        if sum(sizes) == 0:
+            raise ValueError("Sentiment counts sum to zero")
 
-        features = {
-            "comment_length": len(doc.text),
-            "word_count": word_count,
-            "avg_word_length": sum(len(w) for w in word_list)/word_count if word_count else 0,
-            "unique_word_count": unique_words,
-            "lexical_diversity": unique_words/word_count if word_count else 0,
-            "pos_count": len(pos_tags)
-        }
+        colors = ['#36A2EB', '#C9CBCF', '#FF6384']
+        plt.figure(figsize=(6, 6))
+        plt.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%', startangle=140, textprops={'color': 'w'})
+        plt.axis('equal')
 
-        for tag in set(pos_tags):
-            features[f"pos_ratio_{tag}"] = pos_tags.count(tag)/word_count
+        img_io = io.BytesIO()
+        plt.savefig(img_io, format='PNG', transparent=True)
+        img_io.seek(0)
+        plt.close()
+        return send_file(img_io, mimetype='image/png')
+    except Exception as e:
+        app.logger.error(f"Error in /generate_chart: {e}")
+        return jsonify({"error": f"Chart generation failed: {str(e)}"}), 500
 
-        results.append(features)
+@app.route('/generate_wordcloud', methods=['POST'])
+def generate_wordcloud():
+    try:
+        data = request.get_json()
+        comments = data.get('comments')
+        if not comments:
+            return jsonify({"error": "No comments provided"}), 400
 
-    df = pd.DataFrame(results).fillna(0)
-    df = df.reindex(columns=custom_columns, fill_value=0)  # match training columns
-    return df
+        preprocessed_comments = [preprocess_comment(comment) for comment in comments]
+        text = ' '.join(preprocessed_comments)
+        wordcloud = WordCloud(
+            width=800,
+            height=400,
+            background_color='black',
+            colormap='Blues',
+            stopwords=set(stopwords.words('english')),
+            collocations=False
+        ).generate(text)
 
-# ----------------------------- Build Full Feature DataFrame -----------------------------
-def build_feature_dataframe(comments):
-    cleaned_comments = [c for c in comments if c.strip()]
-    if not cleaned_comments:
-        return None, []
+        img_io = io.BytesIO()
+        wordcloud.to_image().save(img_io, format='PNG')
+        img_io.seek(0)
+        return send_file(img_io, mimetype='image/png')
+    except Exception as e:
+        app.logger.error(f"Error in /generate_wordcloud: {e}")
+        return jsonify({"error": f"Word cloud generation failed: {str(e)}"}), 500
 
-    # BOW DataFrame
-    X_bow_sparse = vectorizer.transform(cleaned_comments)
-    X_bow_df = pd.DataFrame(X_bow_sparse.toarray(), columns=bow_columns)
+@app.route('/generate_trend_graph', methods=['POST'])
+def generate_trend_graph():
+    try:
+        data = request.get_json()
+        sentiment_data = data.get('sentiment_data')
+        if not sentiment_data:
+            return jsonify({"error": "No sentiment data provided"}), 400
 
-    # Custom features
-    custom_df = extract_custom_features(cleaned_comments)
+        df = pd.DataFrame(sentiment_data)
+        df['timestamp'] = pd.to_datetime(df['timestamp'])
+        df.set_index('timestamp', inplace=True)
+        df['sentiment'] = df['sentiment'].astype(int)
+        sentiment_labels = {-1: 'Negative', 0: 'Neutral', 1: 'Positive'}
+        monthly_counts = df.resample('M')['sentiment'].value_counts().unstack(fill_value=0)
+        monthly_totals = monthly_counts.sum(axis=1)
+        monthly_percentages = (monthly_counts.T / monthly_totals).T * 100
+        for sentiment_value in [-1, 0, 1]:
+            if sentiment_value not in monthly_percentages.columns:
+                monthly_percentages[sentiment_value] = 0
+        monthly_percentages = monthly_percentages[[-1, 0, 1]]
 
-    # Combine BOW + custom features
-    X_full = pd.concat([X_bow_df, custom_df], axis=1)
+        plt.figure(figsize=(12, 6))
+        colors = {-1: 'red', 0: 'gray', 1: 'green'}
+        for sentiment_value in [-1, 0, 1]:
+            plt.plot(monthly_percentages.index, monthly_percentages[sentiment_value],
+                     marker='o', linestyle='-', label=sentiment_labels[sentiment_value], color=colors[sentiment_value])
+        plt.title('Monthly Sentiment Percentage Over Time')
+        plt.xlabel('Month')
+        plt.ylabel('Percentage of Comments (%)')
+        plt.grid(True)
+        plt.xticks(rotation=45)
+        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+        plt.gca().xaxis.set_major_locator(mdates.AutoDateLocator(maxticks=12))
+        plt.legend()
+        plt.tight_layout()
 
-    # Ensure all columns of training set are present
-    X_full = X_full.reindex(columns=X_train_features_ref.columns, fill_value=0)
+        img_io = io.BytesIO()
+        plt.savefig(img_io, format='PNG')
+        img_io.seek(0)
+        plt.close()
+        return send_file(img_io, mimetype='image/png')
+    except Exception as e:
+        app.logger.error(f"Error in /generate_trend_graph: {e}")
+        return jsonify({"error": f"Trend graph generation failed: {str(e)}"}), 500
 
-    return X_full, cleaned_comments
-
-# ----------------------- Flask App -----------------------
-app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})
-
+# ----------------------------
+# CORS headers for Chrome extension
+# ----------------------------
 @app.after_request
 def add_cors_headers(response):
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    response.headers['Access-Control-Allow-Origin'] = "chrome-extension://glbklpjccnfkccgjjmjadhbmcbjghigd"
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
     return response
 
-@app.route("/")
-def home():
-    return "Flask Sentiment API (BOW + spaCy Custom Features)"
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, debug=True)
 
-# ----------------------------- /predict_with_timestamps -----------------------------
-@app.route("/predict_with_timestamps", methods=["POST"])
-def predict_with_timestamps():
-    try:
-        data = request.get_json()
-        items = data.get("comments", [])
 
-        comments = [it.get("text", "") for it in items]
-        timestamps = [it.get("timestamp") for it in items]
 
-        X_full, valid_comments = build_feature_dataframe(comments)
-        if X_full is None:
-            return jsonify([])
 
-        preds = [int(p) for p in model.predict(X_full)]
-
-        result = []
-        valid_idx = 0
-        for i, c in enumerate(comments):
-            if c.strip():
-                result.append({
-                    "comment": c,
-                    "sentiment": preds[valid_idx],
-                    "timestamp": timestamps[i]
-                })
-                valid_idx += 1
-            else:
-                result.append({
-                    "comment": c,
-                    "sentiment": None,
-                    "timestamp": timestamps[i]
-                })
-
-        return jsonify(result)
-
-    except Exception as e:
-        logger.exception("Prediction with timestamps failed")
-        return jsonify({"error": str(e)}), 500
-
-# ----------------------------- /predict -----------------------------
-@app.route("/predict", methods=["POST"])
-def predict():
-    try:
-        data = request.get_json()
-        comments = data.get("comments", [])
-
-        X_full, valid_comments = build_feature_dataframe(comments)
-        if X_full is None:
-            return jsonify([])
-
-        preds = [int(p) for p in model.predict(X_full)]
-
-        result = []
-        valid_idx = 0
-        for c in comments:
-            if c.strip():
-                result.append({"comment": c, "sentiment": preds[valid_idx]})
-                valid_idx += 1
-            else:
-                result.append({"comment": c, "sentiment": None})
-
-        return jsonify(result)
-
-    except Exception as e:
-        logger.exception("Prediction failed")
-        return jsonify({"error": str(e)}), 500
-
-# ----------------------- Run Server -----------------------
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
 
 
 
