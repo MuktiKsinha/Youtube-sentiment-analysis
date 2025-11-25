@@ -65,7 +65,7 @@ stages:
       size: 5186744
     - path: data/processed/bow_vectorizer.pkl
       hash: md5
-      md5: 301484e32184dbb846de220fb3654876
+      md5: b283a71826bc5c2eae7c5ccca10582b2
       size: 148286
     - path: data/processed/y_train.pkl
       hash: md5
@@ -80,7 +80,7 @@ stages:
       size: 5186744
     - path: data/processed/bow_vectorizer.pkl
       hash: md5
-      md5: 301484e32184dbb846de220fb3654876
+      md5: b283a71826bc5c2eae7c5ccca10582b2
       size: 148286
     - path: data/processed/y_train.pkl
       hash: md5
@@ -115,7 +115,7 @@ stages:
       size: 5275101
     - path: models/model_info.json
       hash: md5
-      md5: 47410d871973973f6a9ca1633991efae
+      md5: 1bb952e5c5f3900b5500846bd7cbfe5a
       size: 103
   model_evaluation:
     cmd: python src/model/model_evaluation.py
@@ -126,7 +126,7 @@ stages:
       size: 1000526
     - path: data/processed/bow_vectorizer.pkl
       hash: md5
-      md5: 301484e32184dbb846de220fb3654876
+      md5: b283a71826bc5c2eae7c5ccca10582b2
       size: 148286
     - path: models/lgbm_Youtube_sentiment.pkl
       hash: md5
@@ -154,9 +154,9 @@ stages:
     deps:
     - path: models/model_info.json
       hash: md5
-      md5: 47410d871973973f6a9ca1633991efae
+      md5: 1bb952e5c5f3900b5500846bd7cbfe5a
       size: 103
     - path: src/model/register_model.py
       hash: md5
-      md5: 9b00da776ae4f834f7b7af83ff86b7c4
-      size: 3070
+      md5: d40f7bd49e20bc3fbb7b30189d209fd6
+      size: 3068
