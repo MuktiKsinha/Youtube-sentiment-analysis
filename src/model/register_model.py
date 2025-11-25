@@ -27,7 +27,7 @@ logger.addHandler(file_handler)
 # ---------------------------
 # MLflow server
 # ---------------------------
-MLFLOW_URI = "http://ec2-13-48-56-210.eu-north-1.compute.amazonaws.com:5000"
+MLFLOW_URI = "http://ec2-13-60-208-36.eu-north-1.compute.amazonaws.com:5000"
 mlflow.set_tracking_uri(MLFLOW_URI)
 
 # ---------------------------
@@ -81,7 +81,7 @@ def main():
         model_info_path = os.path.join(root, "models", "model_info.json")
 
         model_info = load_model_info(model_info_path)
-        model_name = "Youtube_sentiment_analysis_chrome_plugin"
+        model_name = "Youtube_chrome_plugin_model_final"
 
         register_model(model_name, model_info)
 

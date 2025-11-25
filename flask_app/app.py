@@ -48,7 +48,7 @@ def load_model_and_vectorizer(model_name, model_version, vectorizer_path):
     return model, vectorizer
 
 # Initialize model & vectorizer
-model, vectorizer = load_model_and_vectorizer("Youtube_chrome_plugin_model_final", "1", "./data/processed/bow_vectorizer.pkl")
+model, vectorizer = load_model_and_vectorizer("Youtube_chrome_plugin_model_final", "3", "./data/processed/bow_vectorizer.pkl")
 
 # ----------------------------
 # Routes

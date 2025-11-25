@@ -141,7 +141,6 @@ def log_metrics(report: dict):
             mlflow.log_metric("test_accuracy", float(metrics_dict))
 
 def save_model_info(run_id: str, registered_model_name: str, model_version: int, file_path: str) -> None:
-    """Save the model run ID, registered model name, and version to a JSON file."""
     try:
         model_info = {
             'run_id': run_id,
@@ -169,7 +168,7 @@ def main():
         params = load_params(root)
 
         # MLflow setup
-        mlflow.set_tracking_uri("http://ec2-13-48-56-210.eu-north-1.compute.amazonaws.com:5000")
+        mlflow.set_tracking_uri("http://ec2-13-60-208-36.eu-north-1.compute.amazonaws.com:5000")
         mlflow.set_experiment("Youtube_sentiment_evaluation_final")
 
         with mlflow.start_run() as run:
@@ -208,11 +207,30 @@ def main():
             log_metrics(report)
             log_confusion_matrix(cm, "test_set")
 
+            # -----------------------------------
+            # ✔ Infer signature for MLflow Model
+            # -----------------------------------
+            sample_size = min(10, len(test_df))
+            sample_text = test_df["clean_comment"].iloc[:sample_size].tolist()
+
+            sample_features = vectorizer.transform(sample_text).astype('float32')
+
+            signature = infer_signature(
+                sample_features.toarray(),
+                model.predict(sample_features)
+            )
+
             # -----------------------------
             # Log model & register in MLflow
             # -----------------------------
             registered_model_name = "Youtube_chrome_plugin_model_final"
-            mlflow.sklearn.log_model(model, "lgbm_model", registered_model_name=registered_model_name)
+
+            mlflow.sklearn.log_model(
+                sk_model=model,
+                artifact_path="lgbm_model",
+                signature=signature,
+                registered_model_name=registered_model_name
+            )
 
             # Get registered model version
             client = mlflow.tracking.MlflowClient()

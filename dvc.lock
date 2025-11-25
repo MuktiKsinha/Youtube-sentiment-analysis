@@ -92,7 +92,7 @@ stages:
       size: 589
     - path: src/model/model_building.py
       hash: md5
-      md5: 52327e00385a48a864d5e7db086782cc
+      md5: 7b4c7b1574b3b329e4e42b18969d0181
       size: 4647
     params:
       params.yaml:
@@ -115,7 +115,7 @@ stages:
       size: 5275101
     - path: models/model_info.json
       hash: md5
-      md5: eb702b007fcb6bacf475fd1918645f69
+      md5: 47410d871973973f6a9ca1633991efae
       size: 103
   model_evaluation:
     cmd: python src/model/model_evaluation.py
@@ -138,8 +138,8 @@ stages:
       size: 589
     - path: src/model/model_evaluation.py
       hash: md5
-      md5: 037e434299cb65e5fcc92bb2159b96b1
-      size: 9144
+      md5: 0f51ad8db8cb244ab0df29f50bf18ba2
+      size: 9708
     outs:
     - path: reports/classification_report.json
       hash: md5
@@ -154,9 +154,9 @@ stages:
     deps:
     - path: models/model_info.json
       hash: md5
-      md5: eb702b007fcb6bacf475fd1918645f69
+      md5: 47410d871973973f6a9ca1633991efae
       size: 103
     - path: src/model/register_model.py
       hash: md5
-      md5: c5df5da3bc332ded801afe714f657032
-      size: 3077
+      md5: 9b00da776ae4f834f7b7af83ff86b7c4
+      size: 3070
