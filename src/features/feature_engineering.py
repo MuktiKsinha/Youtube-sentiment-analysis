@@ -88,9 +88,9 @@ def apply_bow(train_data: pd.DataFrame, max_features: int, ngram_range: tuple):
         logger.error('Error during BOW transformation: %s', e)
         raise
 
-# ---------------------------
+# -----------------------
 # Main pipeline
-# ---------------------------
+# -----------------------
 def main():
     try:
         logger.info("Starting Feature Engineering...")
