@@ -17,7 +17,7 @@ def test_load_latest_staging_model(model_name, stage):
     assert latest_version is not None, f"No model found in the '{stage}' stage for '{model_name}'"
 
     try:
-        # Load the latest version of the model
+        # Load the latest version of the mode
         model_uri = f"models:/{model_name}/{latest_version}"
         model = mlflow.pyfunc.load_model(model_uri)
 
