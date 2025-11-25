@@ -169,7 +169,7 @@ def main():
         params = load_params(root)
 
         # MLflow setup
-        mlflow.set_tracking_uri("http://ec2-13-60-52-178.eu-north-1.compute.amazonaws.com:5000/")
+        mlflow.set_tracking_uri("http://ec2-13-48-56-210.eu-north-1.compute.amazonaws.com:5000")
         mlflow.set_experiment("Youtube_sentiment_evaluation_final")
 
         with mlflow.start_run() as run:

@@ -31,7 +31,7 @@ logger.addHandler(file_handler)
 # ---------------------------
 # MLflow server
 # ---------------------------
-MLFLOW_URI = "http://ec2-13-60-52-178.eu-north-1.compute.amazonaws.com:5000"
+MLFLOW_URI = "http://ec2-13-48-56-210.eu-north-1.compute.amazonaws.com:5000"
 mlflow.set_tracking_uri(MLFLOW_URI)
 
 # ---------------------------
