@@ -6,9 +6,9 @@ from mlflow.tracking import MlflowClient
 import logging
 import os
 
-# ---------------------------
+# --------------------------
 # Logging
-# ---------------------------
+# --------------------------
 logger = logging.getLogger('model_registration')
 logger.setLevel(logging.DEBUG)
 
