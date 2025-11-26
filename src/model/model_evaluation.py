@@ -1,118 +1,150 @@
 # src/model/model_evaluation.py
 
-import sys
 import os
-import numpy as np
-import pandas as pd
 import pickle
+import pandas as pd
+import json
 import logging
-import yaml
 import mlflow
-from mlflow.sklearn import log_model
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.feature_extraction.text import CountVectorizer
 import matplotlib.pyplot as plt
 from mlflow.models import infer_signature
-import json
+import yaml
 
 try:
     import seaborn as sns
-except Exception:
+except:
     sns = None
 
+# ---------------------------
+# Logging
+# ---------------------------
 logger = logging.getLogger('model_evaluation')
 logger.setLevel(logging.DEBUG)
 if not logger.hasHandlers():
-    console_handler = logging.StreamHandler()
-    file_handler = logging.FileHandler('model_evaluation_errors.log')
+    ch = logging.StreamHandler()
+    fh = logging.FileHandler('model_evaluation_errors.log')
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    console_handler.setFormatter(formatter)
-    file_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
-    logger.addHandler(file_handler)
+    ch.setFormatter(formatter)
+    fh.setFormatter(formatter)
+    logger.addHandler(ch)
+    logger.addHandler(fh)
 
-def get_root_directory() -> str:
+# ---------------------------
+# Helpers
+# ---------------------------
+def get_root_directory():
     return os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../'))
 
-def path_processed(filename: str) -> str:
+def path_processed(filename: str):
     return os.path.join(get_root_directory(), 'data/processed', filename)
 
-def load_data(path: str) -> pd.DataFrame:
+def load_model(path):
+    with open(path, 'rb') as f:
+        return pickle.load(f)
+
+def load_vectorizer(path):
+    with open(path, 'rb') as f:
+        return pickle.load(f)
+
+def load_data(path):
     df = pd.read_csv(path)
     df.fillna('', inplace=True)
     return df
 
-def load_model(path: str):
-    with open(path, 'rb') as f:
-        return pickle.load(f)
-
-def load_vectorizer(path: str):
-    with open(path, 'rb') as f:
-        return pickle.load(f)
-
-def log_confusion_matrix(cm, dataset_name):
-    plt.figure(figsize=(8, 6))
-    if sns:
-        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
-    else:
-        plt.imshow(cm, cmap='Blues')
-
-    plt.title(f'Confusion Matrix - {dataset_name}')
-    plt.xlabel('Predicted')
-    plt.ylabel('Actual')
-    cm_file = os.path.join(get_root_directory(), 'reports', f'conf_matrix_{dataset_name}.png')
-    os.makedirs(os.path.dirname(cm_file), exist_ok=True)
-    plt.savefig(cm_file)
-    mlflow.log_artifact(cm_file)
-    plt.close()
-
+# ---------------------------
+# Main
+# ---------------------------
 def main():
     try:
         root = get_root_directory()
         mlflow.set_tracking_uri("http://ec2-16-171-11-131.eu-north-1.compute.amazonaws.com:5000")
         mlflow.set_experiment("Youtube_sentiment_evaluation_final")
 
-        # Load artifacts
+        # Load model, vectorizer, test data
         model = load_model(os.path.join(root, "models", "lgbm_Youtube_sentiment.pkl"))
         vectorizer = load_vectorizer(path_processed("bow_vectorizer.pkl"))
         test_df = load_data(os.path.join(root, "data/interim/test_processed.csv"))
 
+        # Load parameters for logging
+        with open(os.path.join(root, "params.yaml"), "r") as f:
+            params_all = yaml.safe_load(f)
+        model_params = params_all.get("model_building", {}).get("lgbm_params", {})
+
+        # Prepare reports directory for DVC outputs
+        reports_dir = os.path.join(root, 'reports')
+        os.makedirs(reports_dir, exist_ok=True)
+
         with mlflow.start_run() as run:
+
+            # -------------------------
+            # Log model parameters
+            # -------------------------
+            for k, v in model_params.items():
+                mlflow.log_param(k, v)
+
+            # Transform test set
             X_test = vectorizer.transform(test_df["clean_comment"].values).astype('float32')
             y_test = test_df["category"].values
 
+            # Evaluate
             y_pred = model.predict(X_test)
             report = classification_report(y_test, y_pred, output_dict=True)
             cm = confusion_matrix(y_test, y_pred)
 
+            # -------------------------
             # Log metrics
-            mlflow.log_metric("test_accuracy", report.get("accuracy", 0))
+            # -------------------------
+            for label, metrics_dict in report.items():
+                if isinstance(metrics_dict, dict):
+                    for m_name, m_value in metrics_dict.items():
+                        if m_name != "support":
+                            mlflow.log_metric(f"{label}_{m_name}", float(m_value))
+                elif label == "accuracy":
+                    mlflow.log_metric("accuracy", float(metrics_dict))
 
-            log_confusion_matrix(cm, "test")
+            # -------------------------
+            # Save DVC outputs
+            # -------------------------
+            classification_report_path = os.path.join(reports_dir, 'classification_report.json')
+            with open(classification_report_path, 'w') as f:
+                json.dump(report, f, indent=4)
 
-            signature = infer_signature(
-                X_test[:5].toarray(),
-                model.predict(X_test[:5])
-            )
+            cm_file_path = os.path.join(reports_dir, 'confusion_matrix_test_set.png')
+            plt.figure(figsize=(8, 6))
+            if sns:
+                sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+            else:
+                plt.imshow(cm, cmap='Blues')
+            plt.title('Confusion Matrix - Test Set')
+            plt.xlabel('Predicted')
+            plt.ylabel('Actual')
+            plt.savefig(cm_file_path)
+            plt.close()
 
-            registered_model_name = "Youtube_chrome_plugin_model_final"
+            # Save experiment info for registration (DVC output)
+            experiment_info_path = os.path.join(root, 'experiment_info.json')
+            info = {"run_id": run.info.run_id, "registered_model_name": "Youtube_chrome_plugin_model_final"}
+            with open(experiment_info_path, 'w') as f:
+                json.dump(info, f, indent=4)
 
+            # -------------------------
+            # Log artifacts to MLflow
+            # -------------------------
+            mlflow.log_artifact(classification_report_path)
+            mlflow.log_artifact(cm_file_path)
+            mlflow.log_artifact(experiment_info_path)
+
+            # -------------------------
+            # Log model with signature (optional, still separate registration)
+            # -------------------------
+            signature = infer_signature(X_test[:5].toarray(), model.predict(X_test[:5]))
             mlflow.sklearn.log_model(
                 sk_model=model,
                 artifact_path="lgbm_model",
-                signature=signature,
-                registered_model_name=registered_model_name
+                signature=signature
             )
-
-            # Save info for registration script
-            info = {
-                "run_id": run.info.run_id,
-                "registered_model_name": registered_model_name
-            }
-            with open("experiment_info.json", "w") as f:
-                json.dump(info, f, indent=4)
-
-            mlflow.log_artifact("experiment_info.json")
 
             logger.info("Model evaluation logged successfully.")
 
@@ -122,6 +154,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
 
 
 
