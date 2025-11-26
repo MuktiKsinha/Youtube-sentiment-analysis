@@ -39,7 +39,7 @@ def test_model_with_vectorizer(model_name, stage):
 
     # Dummy input for testing
     input_text = ["hi how are you"]
-    X_input = vectorizer.transform(input_text)
+    X_input = vectorizer.transform(input_text).astype('float32')
 
     # Predict using the loaded model
     prediction = model.predict(X_input)
