@@ -92,8 +92,8 @@ stages:
       size: 568
     - path: src/model/model_building.py
       hash: md5
-      md5: ee4823cfc3f7a0ec310e502196221a0f
-      size: 4500
+      md5: 7fc0806ec4cc60cde0acc58060db235f
+      size: 4501
     params:
       params.yaml:
         model_building.lgbm_params:
@@ -115,7 +115,7 @@ stages:
       size: 5275078
     - path: models/model_info.json
       hash: md5
-      md5: 7f9823c54a5351ecefa01a79025b304f
+      md5: cb97b7a9cfd89df53932f52946cb14d2
       size: 100
   model_evaluation:
     cmd: python src/model/model_evaluation.py
@@ -138,8 +138,8 @@ stages:
       size: 568
     - path: src/model/model_evaluation.py
       hash: md5
-      md5: 4c80b1c40a3428801fc427fc9e7fff7c
-      size: 9446
+      md5: 5e095f393c30edf17e1dc6d56a86a3b8
+      size: 9447
     outs:
     - path: reports/classification_report.json
       hash: md5
@@ -154,9 +154,9 @@ stages:
     deps:
     - path: models/model_info.json
       hash: md5
-      md5: 7f9823c54a5351ecefa01a79025b304f
+      md5: cb97b7a9cfd89df53932f52946cb14d2
       size: 100
     - path: src/model/register_model.py
       hash: md5
-      md5: 6aae8bcf9e11708419c1b22a9def675c
-      size: 2970
+      md5: 9e4a616b24c3b91feecad0b39d7e18d2
+      size: 2971
