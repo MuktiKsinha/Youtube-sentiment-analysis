@@ -11,8 +11,16 @@ import numpy as np
 import joblib
 import re
 import pandas as pd
+import nltk
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
+
+# Ensure stopwords are available even in fresh environments (like CI) --some changes for ci workflow 
+try:
+    nltk.data.find('corpora/stopwords')
+except LookupError:
+    nltk.download('stopwords')
+
 from mlflow.tracking import MlflowClient
 import matplotlib.dates as mdates
 
