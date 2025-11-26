@@ -1,6 +1,6 @@
 import mlflow
 
-mlflow.set_tracking_uri("http://ec2-13-60-208-36.eu-north-1.compute.amazonaws.com:5000")
+mlflow.set_tracking_uri("http://ec2-16-171-11-131.eu-north-1.compute.amazonaws.com:5000")
 
 from mlflow.tracking import MlflowClient
 client = MlflowClient()
