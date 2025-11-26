@@ -27,9 +27,9 @@ import matplotlib.dates as mdates
 app = Flask(__name__)
 CORS(app, origins=["chrome-extension://glbklpjccnfkccgjjmjadhbmcbjghigd"], supports_credentials=True)
 
-# ----------------------------
+# ---------------------------
 # Preprocessing function
-# ----------------------------
+# ---------------------------
 def preprocess_comment(comment):
     try:
         comment = comment.lower().strip()
