@@ -63,9 +63,13 @@ def main():
         mlflow.set_experiment("Youtube_sentiment_evaluation_final")
 
         # Load model, vectorizer, test data
-        model = load_model(os.path.join(root, "models", "lgbm_Youtube_sentiment.pkl"))
-        vectorizer = load_vectorizer(path_processed("bow_vectorizer.pkl"))
-        test_df = load_data(os.path.join(root, "data/interim/test_processed.csv"))
+        model_file = os.path.join(root, "models", "lgbm_Youtube_sentiment.pkl")
+        vectorizer_file = path_processed("bow_vectorizer.pkl")
+        test_file = os.path.join(root, "data/interim/test_processed.csv")
+
+        model = load_model(model_file)
+        vectorizer = load_vectorizer(vectorizer_file)
+        test_df = load_data(test_file)
 
         # Load parameters for logging
         with open(os.path.join(root, "params.yaml"), "r") as f:
@@ -123,7 +127,7 @@ def main():
             plt.savefig(cm_file_path)
             plt.close()
 
-            # Save experiment info for registration (DVC output)
+            # Save experiment info for registration
             experiment_info_path = os.path.join(root, 'experiment_info.json')
             info = {"run_id": run.info.run_id, "registered_model_name": "Youtube_chrome_plugin_model_final"}
             with open(experiment_info_path, 'w') as f:
@@ -137,13 +141,14 @@ def main():
             mlflow.log_artifact(experiment_info_path)
 
             # -------------------------
-            # Log model with signature (optional, still separate registration)
+            # Log model and include vectorizer inside model artifact
             # -------------------------
             signature = infer_signature(X_test[:5].toarray(), model.predict(X_test[:5]))
             mlflow.sklearn.log_model(
                 sk_model=model,
                 artifact_path="lgbm_model",
-                signature=signature
+                signature=signature,
+                extra_files={ "bow_vectorizer.pkl": vectorizer_file }
             )
 
             logger.info("Model evaluation logged successfully.")
@@ -154,6 +159,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
