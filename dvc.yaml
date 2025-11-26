@@ -43,7 +43,6 @@ stages:
       - model_building.lgbm_params
     outs:
       - models/lgbm_Youtube_sentiment.pkl
-      - models/model_info.json
 
   model_evaluation:
     cmd: python src/model/model_evaluation.py
@@ -56,12 +55,13 @@ stages:
     outs:
       - reports/classification_report.json
       - reports/confusion_matrix_test_set.png
+      - experiment_info.json
 
   model_registration:
     cmd: python src/model/register_model.py
     deps:
       - src/model/register_model.py
-      - models/model_info.json
+      - experiment_info.json
     outs: []
 
   
