@@ -29,7 +29,7 @@ def test_model_with_vectorizer(model_name, stage):
     with open(vectorizer_path, "rb") as f:
         vectorizer = pickle.load(f)
 
-    # Dummy inpuT
+    # Dummy input
     input_text = ["hi how are you"]
     X_input = vectorizer.transform(input_text)
 
