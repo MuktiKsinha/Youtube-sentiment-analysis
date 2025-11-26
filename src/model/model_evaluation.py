@@ -141,15 +141,19 @@ def main():
             mlflow.log_artifact(experiment_info_path)
 
             # -------------------------
-            # Log model and include vectorizer inside model artifact
+            # Log model
             # -------------------------
             signature = infer_signature(X_test[:5].toarray(), model.predict(X_test[:5]))
             mlflow.sklearn.log_model(
                 sk_model=model,
                 artifact_path="lgbm_model",
-                signature=signature,
-                extra_files={ "bow_vectorizer.pkl": vectorizer_file }
+                signature=signature
             )
+
+            # -------------------------
+            # Log vectorizer separately inside the model folder
+            # -------------------------
+            mlflow.log_artifact(vectorizer_file, artifact_path="lgbm_model/vectorizer")
 
             logger.info("Model evaluation logged successfully.")
 
@@ -159,6 +163,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 

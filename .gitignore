@@ -1,1 +1,16 @@
 /experiment_info.json
+models/
+src/__pycache__/
+src/features/__pycache__/
+youtube_env/
+youtube_preprocessing.csv
+.youtube_env
+data/external/
+data/processed/.gitkeep
+mlruns/
+*csv
+*env
+.gitignore
+dvclock
+
+
