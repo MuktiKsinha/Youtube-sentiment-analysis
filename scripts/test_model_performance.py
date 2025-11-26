@@ -10,7 +10,7 @@ from mlflow.artifacts import download_artifacts
 mlflow.set_tracking_uri("http://ec2-16-171-11-131.eu-north-1.compute.amazonaws.com:5000")
 
 @pytest.mark.parametrize("model_name, stage, holdout_data_path", [
-    ("Youtube_chrome_plugin_model_final", "staging", "data/processed/test_processed.csv"),
+    ("Youtube_chrome_plugin_model_final", "staging", "data/interim/test_processed.csv"),
 ])
 def test_model_performance(model_name, stage, holdout_data_path):
     try:
