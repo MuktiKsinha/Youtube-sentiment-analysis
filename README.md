@@ -1,57 +1,87 @@
-youtube_sentiment_analysis
-==============================
 
-A chrome plugin for analyze sentiments on you tube
+</details>
 
-Project Organization
-------------
+---
 
-    ├── LICENSE
-    ├── Makefile           <- Makefile with commands like `make data` or `make train`
-    ├── README.md          <- The top-level README for developers using this project.
-    ├── data
-    │   ├── external       <- Data from third party sources.
-    │   ├── interim        <- Intermediate data that has been transformed.
-    │   ├── processed      <- The final, canonical data sets for modeling.
-    │   └── raw            <- The original, immutable data dump.
-    │
-    ├── docs               <- A default Sphinx project; see sphinx-doc.org for details
-    │
-    ├── models             <- Trained and serialized models, model predictions, or model summaries
-    │
-    ├── notebooks          <- Jupyter notebooks. Naming convention is a number (for ordering),
-    │                         the creator's initials, and a short `-` delimited description, e.g.
-    │                         `1.0-jqp-initial-data-exploration`.
-    │
-    ├── references         <- Data dictionaries, manuals, and all other explanatory materials.
-    │
-    ├── reports            <- Generated analysis as HTML, PDF, LaTeX, etc.
-    │   └── figures        <- Generated graphics and figures to be used in reporting
-    │
-    ├── requirements.txt   <- The requirements file for reproducing the analysis environment, e.g.
-    │                         generated with `pip freeze > requirements.txt`
-    │
-    ├── setup.py           <- makes project pip installable (pip install -e .) so src can be imported
-    ├── src                <- Source code for use in this project.
-    │   ├── __init__.py    <- Makes src a Python module
-    │   │
-    │   ├── data           <- Scripts to download or generate data
-    │   │   └── make_dataset.py
-    │   │
-    │   ├── features       <- Scripts to turn raw data into features for modeling
-    │   │   └── build_features.py
-    │   │
-    │   ├── models         <- Scripts to train models and then use trained models to make
-    │   │   │                 predictions
-    │   │   ├── predict_model.py
-    │   │   └── train_model.py
-    │   │
-    │   └── visualization  <- Scripts to create exploratory and results oriented visualizations
-    │       └── visualize.py
-    │
-    └── tox.ini            <- tox file with settings for running tox; see tox.readthedocs.io
+## 🧪 Experiments & Model Performance
 
+Multiple experimentation cycles improved model accuracy from **69% → 87%**.  
+All experiments are tracked via **MLflow**.
 
---------
+| Version | Model | Vectorizer | Accuracy | Notes |
+|--------:|-------|------------|---------:|------|
+| v1 | Random Forest | CountVectorizer | 69% | Baseline |
+| v2 | Logistic Regression | BOW | 77% | Text cleaning & lemmatization |
+| v3 | Random Forest | BOW | 82% | Class balancing, hyperparam tuning |
+| v4 | LightGBM | BOW + n-grams | 87% | Emoji normalization & sarcasm handling |
 
-<p><small>Project based on the <a target="_blank" href="https://drivendata.github.io/cookiecutter-data-science/">cookiecutter data science project template</a>. #cookiecutterdatascience</small></p>
+**Final Model Metrics (Macro Avg)**:  
+- **Precision:** 0.86  
+- **Recall:** 0.85  
+- **F1-score:** 0.85
+
+---
+
+## 🚀 Key Features
+
+- Real-time comment extraction via YouTube API  
+- Chrome extension for user-friendly interface  
+- Preprocessing handles emojis, slang, Hinglish  
+- Multiple ML models with iterative improvements  
+- Dockerized Flask API deployed on AWS EC2  
+- Experiment tracking & model registry via MLflow  
+- CI/CD automation with GitHub Actions  
+
+---
+
+## 🏗 MLOps & Deployment
+
+- **Experiment Tracking:** MLflow  
+- **Model Registry:** Staging → Production promotion  
+- **Containerization:** Docker  
+- **Cloud Hosting:** AWS EC2  
+- **Automated Testing & CI/CD:** GitHub Actions  
+- **Scalable API:** Flask REST endpoint  
+
+---
+
+## 📊 Visual Insights
+
+_Visual placeholders — add actual charts for full portfolio effect:_  
+
+- Confusion Matrix  
+- Sentiment Distribution Graph  
+- Word Cloud  
+- System Architecture Diagram  
+
+---
+
+## 📁 Frontend (Chrome Extension)
+
+- `popup.html` – User interface popup  
+- `popup.js` – JS logic for fetching and displaying sentiment  
+- `styles.css` – Extension styling  
+
+---
+
+## ⚙️ Tech Stack
+
+Python | Flask | LightGBM | TF-IDF | NLTK | Docker | AWS EC2 | MLflow | GitHub Actions | Chrome Extension | Pandas | Matplotlib
+
+---
+
+## 📌 Repository & Portfolio
+
+- GitHub: [https://github.com/MuktiKsinha/Youtube-sentiment-analysis](https://github.com/MuktiKsinha/Youtube-sentiment-analysis)  
+- Portfolio: `[Add Portfolio URL]`  
+
+---
+
+## 📈 Impact
+
+- Automates YouTube comment sentiment analysis  
+- Provides actionable insights for content creators and marketers  
+- Demonstrates full ML lifecycle: experimentation → deployment → monitoring  
+- Optimized for real-world noisy social media data  
+
+---
