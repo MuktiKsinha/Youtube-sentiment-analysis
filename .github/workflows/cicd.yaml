@@ -134,6 +134,30 @@ jobs:
         run: |
           pytest -v scripts/test_flask_api.py
 
+      - name: Login to AWS ECR
+        if: success()
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin 332093714760.dkr.ecr.eu-north-1.amazonaws.com
+
+      - name: Build Docker image
+        if: success()
+        run: |
+          docker build -t youtube-chrome-plugin .
+
+      - name: Tag Docker image
+        if: success()
+        run: |
+          docker tag youtube-chrome-plugin:latest 332093714760.dkr.ecr.eu-north-1.amazonaws.com/youtube-chrome-plugin:latest
+
+      - name: Push Docker image to AWS ECR
+        if: success()
+        run: |
+          docker push 332093714760.dkr.ecr.eu-north-1.amazonaws.com/youtube-chrome-plugin:latest
+
+      
+
 
       
 

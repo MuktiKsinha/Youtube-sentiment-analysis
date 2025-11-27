@@ -1,0 +1,30 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment / pip install folders
+env/
+venv/
+.install/
+pip-wheel-metadata/
+
+# Logs
+*.log
+flask.log
+
+# DVC temporary or raw files (if already tracked)
+data/raw/
+data/tmp/
+*.dvc
+
+# Git files
+.git
+.gitignore
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/
+
+# OS files
+.DS_Store
