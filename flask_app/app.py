@@ -210,6 +210,10 @@ def generate_trend_graph():
 # ----------------------------
 # CORS headers for Chrome extension
 # ----------------------------
+@app.route('/ping', methods=['GET'])
+def ping():
+    return jsonify({"status": "pong"}), 200
+
 @app.after_request
 def add_cors_headers(response):
     response.headers['Access-Control-Allow-Origin'] = "chrome-extension://glbklpjccnfkccgjjmjadhbmcbjghigd"
