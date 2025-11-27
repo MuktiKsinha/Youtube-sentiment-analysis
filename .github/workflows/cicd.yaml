@@ -158,6 +158,7 @@ jobs:
         run: |
           docker tag youtube-chrome-plugin:latest 332093714760.dkr.ecr.eu-north-1.amazonaws.com/youtube-chrome-plugin:latest
 
+      # deploy to AWS ECR
       - name: Push Docker image to AWS ECR
         if: success()
         run: |
