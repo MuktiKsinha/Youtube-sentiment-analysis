@@ -70,8 +70,6 @@ By addressing this challenge directly, we aim to:
 └─ ⚖️ LICENSE
  # Project license
 
-
-
 </details>
 
 ---
@@ -171,10 +169,6 @@ Experiment tracking with metrics, artifacts, and model versioning.
 
 
 ---
-
-# High-Level End-to-End Flow
-
-YouTube API → ML Model → Flask API → Chrome Extension → User
 
 # High-Level End-to-End Flow
 
@@ -298,11 +292,6 @@ YouTube API → ML Model → Flask API → Chrome Extension → User
 │ Auto-reload on new production release        │
 └─────────────────────────────────────────────┘
 ```
-
-
-
-
-
 
 ## 📁 Frontend (Chrome Extension)
 
